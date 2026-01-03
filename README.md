@@ -1,9 +1,47 @@
-# UniQUE MySQL Scheme
+# Migration image (golang-migrate + MySQL base)
 
-このリポは、UniQUE の MySQL ファイルを置いておくためのリポです。
+Build the image:
 
-## 構成
+```bash
+docker build -t unique-migrate -f docker/migrate/Dockerfile .
+```
 
-- conf.d - conf.d 内に置いておくべき設定ファイルがあります。
-- init - 最初に実行すべき SQL があります。Docker Compose で建てる場合はここをエンドポイントディレクトリとして指定することにより、DB の初期化を行うことができます。
-- migrations - 既存の DB 構成に変更があった場合、差分アップデートするためのファイル群です。最後にアップデートした日付より後のファイルを実行することにより、DB スキームを最新に保つことができます。
+Run migrations (example):
+
+```bash
+docker run --rm \
+  -e DATABASE_URL='mysql://root:password@tcp(db-host:3306)/your_db?multiStatements=true' \
+  unique-migrate
+```
+
+Environment:
+
+- `DATABASE_URL`: required, format `mysql://user:pass@tcp(host:port)/dbname?multiStatements=true`
+- `MAX_RETRIES`: optional, default `60`
+- `SLEEP`: optional retry sleep seconds, default `2`
+
+docker-compose service example:
+
+```yaml
+version: "3.8"
+services:
+  db:
+    image: mysql:8.0
+    environment:
+      - MYSQL_ROOT_PASSWORD=password
+      - MYSQL_DATABASE=your_db
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    image: unique-migrate
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=mysql://root:password@tcp(db:3306)/your_db?multiStatements=true
+    restart: "no"
+```
