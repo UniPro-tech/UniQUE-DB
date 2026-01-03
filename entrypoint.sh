@@ -30,4 +30,4 @@ until $MIGRATE_BIN -path "$MIGRATIONS_DIR" -database "$DATABASE_URL" $ACTION; do
 done
 
 echo "migrations applied"
-tail -f /dev/null
+exit 0

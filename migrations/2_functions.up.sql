@@ -1,43 +1,46 @@
 DELIMITER //
 
 CREATE FUNCTION to_crockford_b32 (src BIGINT, encoded_len INT)
-RETURNS TEXT
+RETURNS CHAR(26)
 DETERMINISTIC
-READS SQL DATA
+NO SQL
 BEGIN
     DECLARE result TEXT DEFAULT '';
     DECLARE b32char CHAR(32) DEFAULT '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
     DECLARE i INT DEFAULT 0;
 
-ENCODE: LOOP
-        SET i = i + 1;
-        SET result = CONCAT(SUBSTRING(b32char, (src MOD 32) + 1, 1), result);
+    WHILE i < encoded_len DO
+        SET result = CONCAT(
+            SUBSTRING(b32char, (src MOD 32) + 1, 1),
+            result
+        );
         SET src = src DIV 32;
+        SET i = i + 1;
+    END WHILE;
 
-        IF i < encoded_len THEN
-            ITERATE ENCODE;
-        END IF;
-
-        LEAVE ENCODE;
-END LOOP ENCODE;
-
-RETURN result;
+    RETURN result;
 END//
 
 CREATE FUNCTION gen_ulid ()
 RETURNS CHAR(26)
 NOT DETERMINISTIC
-READS SQL DATA
+NO SQL
 BEGIN
-    DECLARE msec_ts BIGINT DEFAULT FLOOR(UNIX_TIMESTAMP(CURRENT_TIMESTAMP(4)) * 1000);
-    DECLARE rand CHAR(20) DEFAULT HEX(RANDOM_BYTES(10));
-    DECLARE rand_first BIGINT DEFAULT CONV(SUBSTRING(rand, 1, 10), 16, 10);
-    DECLARE rand_last  BIGINT DEFAULT CONV(SUBSTRING(rand, 11, 10), 16, 10);
+    DECLARE msec_ts BIGINT;
+    DECLARE rand_hex CHAR(32);
+    DECLARE rand_hi BIGINT;
+    DECLARE rand_lo BIGINT;
+
+    SET msec_ts = FLOOR(UNIX_TIMESTAMP(CURRENT_TIMESTAMP(3)) * 1000);
+    SET rand_hex = HEX(RANDOM_BYTES(10));
+
+    SET rand_hi = CONV(SUBSTRING(rand_hex, 1, 8), 16, 10);
+    SET rand_lo = CONV(SUBSTRING(rand_hex, 9, 12), 16, 10);
 
     RETURN CONCAT(
         to_crockford_b32(msec_ts, 10),
-        to_crockford_b32(rand_first, 8),
-        to_crockford_b32(rand_last, 8)
+        to_crockford_b32(rand_hi, 8),
+        to_crockford_b32(rand_lo, 8)
     );
 END//
 
@@ -77,11 +80,10 @@ BEGIN
     END IF;
 END//
 
-DELIMITER ;
-
-SET GLOBAL event_scheduler = ON;
-
 CREATE EVENT delete_expired_sessions
 ON SCHEDULE EVERY 1 HOUR
 DO
     DELETE FROM sessions WHERE expires_at < NOW();
+//
+
+DELIMITER ;
