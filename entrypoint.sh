@@ -2,7 +2,7 @@
 set -eu
 
 MIGRATE_BIN=/usr/local/bin/migrate
-MIGRATIONS_DIR=/migrations
+MIGRATIONS_DIR=${MIGRATIONS_DIR:-/migrations}
 
 if [ "$#" -eq 0 ]; then
   ACTION="up"
@@ -30,5 +30,4 @@ until $MIGRATE_BIN -path "$MIGRATIONS_DIR" -database "$DATABASE_URL" $ACTION; do
 done
 
 echo "migrations applied"
-# keep container alive so user can inspect logs if needed
 tail -f /dev/null
