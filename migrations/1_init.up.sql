@@ -1,212 +1,357 @@
-CREATE TABLE
-  `users` (
-    `id` VARCHAR(255) PRIMARY KEY,
-    `custom_id` VARCHAR(255) UNIQUE NOT NULL,
-    `name` VARCHAR(255) NOT NULL,
-    `password_hash` VARCHAR(255) NULL,
-    `email` VARCHAR(255) UNIQUE NOT NULL,
-    `external_email` VARCHAR(255) NOT NULL,
-    `email_verified` BOOLEAN DEFAULT FALSE,
-    `period` VARCHAR(255) NULL,
-    `birthdate` DATE DEFAULT NULL,
-    `joined_at` DATETIME NULL,
-    `is_system` BOOLEAN DEFAULT FALSE,
-    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
-    `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    `is_enable` BOOLEAN DEFAULT TRUE,
-    `is_suspended` BOOLEAN DEFAULT FALSE,
-    `suspended_until` DATETIME NULL,
-    `suspended_reason` TEXT NULL
+SET GLOBAL log_bin_trust_function_creators = 1;
+
+-- ULID generation function
+
+DELIMITER //
+CREATE FUNCTION gen_ulid ()
+RETURNS CHAR(26) NOT DETERMINISTIC
+BEGIN
+  DECLARE msec_ts BIGINT DEFAULT FLOOR(UNIX_TIMESTAMP(CURRENT_TIMESTAMP(4)) * 1000);
+  DECLARE rand CHAR(20) DEFAULT HEX(RANDOM_BYTES(10));
+  DECLARE rand_first BIGINT DEFAULT CONV(SUBSTRING(rand, 1, 10), 16, 10);
+  DECLARE rand_last BIGINT DEFAULT CONV(SUBSTRING(rand, 11, 10), 16, 10);
+  RETURN CONCAT(
+    to_crockford_b32(msec_ts, 10),
+    to_crockford_b32(rand_first, 8),
+    to_crockford_b32(rand_last, 8)
   );
+END; //
+DELIMITER ;
 
-CREATE INDEX idx_users_custom_id ON users (custom_id);
+-- users
 
-CREATE TABLE
-  `apps` (
-    `id` VARCHAR(255) PRIMARY KEY,
-    `client_secret` VARCHAR(255) NOT NULL,
-    `name` VARCHAR(255) NOT NULL,
-    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    `is_enable` BOOLEAN DEFAULT TRUE
-  );
+CREATE TABLE users (
+  id CHAR(26) PRIMARY KEY,
+  custom_id VARCHAR(50) NOT NULL UNIQUE,
+  email VARCHAR(100) NOT NULL UNIQUE,
+  external_email VARCHAR(100) NOT NULL,
+  affiliation_period VARCHAR(20) NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  status ENUM('established', 'active', 'suspended', 'archived') NOT NULL DEFAULT 'established',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  deleted_at DATETIME NULL
+) COMMENT='Table to store user credential information. Type: master';
 
-CREATE TABLE
-  `redirect_uris` (
-    `id` INT PRIMARY KEY AUTO_INCREMENT,
-    `app_id` VARCHAR(255) NOT NULL,
-    `uri` VARCHAR(255) NOT NULL,
-    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-  );
+CREATE INDEX idx_users_affiliation_period ON users(affiliation_period);
+CREATE INDEX idx_users_status ON users(status);
+CREATE INDEX idx_users_created_at ON users(created_at);
+CREATE INDEX idx_users_updated_at ON users(updated_at);
+CREATE INDEX idx_users_deleted_at ON users(deleted_at);
 
-CREATE TABLE
-  `auths` (
-    `id` INT PRIMARY KEY AUTO_INCREMENT,
-    `auth_user_id` VARCHAR(255) NOT NULL,
-    `app_id` VARCHAR(255) NOT NULL,
-    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    `is_enable` BOOLEAN NOT NULL DEFAULT TRUE
-  );
+-- profiles
 
-CREATE TABLE
-  `oidc_authorizations` (
-    `id` INT PRIMARY KEY AUTO_INCREMENT,
-    `auth_id` INT NOT NULL,
-    `code_id` INT NOT NULL,
-    `consent_id` INT NOT NULL,
-    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE (`code_id`)
-  );
+CREATE TABLE profiles (
+  user_id CHAR(26) PRIMARY KEY,
+  display_name VARCHAR(100) NOT NULL,
+  bio TEXT NULL,
+  birthdate DATE NULL,
+  twitter_handle VARCHAR(50) NULL,
+  website_url VARCHAR(255) NULL,
+  joined_at DATE NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  deleted_at DATETIME NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) COMMENT='Table to store user profile information. Type: master';
 
-CREATE TABLE
-  `token_sets` (
-    `id` INT PRIMARY KEY AUTO_INCREMENT,
-    `oidc_authorization_id` INT NOT NULL,
-    `access_token_id` VARCHAR(255) NOT NULL,
-    `refresh_token_id` VARCHAR(255) NOT NULL,
-    `id_token_id` VARCHAR(255) NOT NULL,
-    `is_enable` BOOLEAN NOT NULL DEFAULT TRUE,
-    UNIQUE (`access_token_id`),
-    UNIQUE (`refresh_token_id`),
-    UNIQUE (`id_token_id`),
-    UNIQUE (`oidc_authorization_id`)
-  );
+CREATE INDEX idx_profiles_display_name ON profiles(display_name);
+CREATE INDEX idx_profiles_joined_at ON profiles(joined_at);
+CREATE INDEX idx_profiles_created_at ON profiles(created_at);
+CREATE INDEX idx_profiles_updated_at ON profiles(updated_at);
+CREATE INDEX idx_profiles_deleted_at ON profiles(deleted_at);
 
-CREATE TABLE
-  `code` (
-    `id` INT PRIMARY KEY AUTO_INCREMENT,
-    `token` VARCHAR(255) UNIQUE NOT NULL,
-    `nonce` VARCHAR(255) NULL,
-    `code_challenge` VARCHAR(255) NULL,
-    `code_challenge_method` VARCHAR(255) NULL,
-    `acr` VARCHAR(255) NULL,
-    `amr` VARCHAR(255) NULL,
-    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    `exp` TIMESTAMP,
-    `is_enable` BOOLEAN NOT NULL DEFAULT TRUE
-  );
+-- applications
 
-CREATE TABLE
-  `access_tokens` (
-    `id` VARCHAR(255) PRIMARY KEY,
-    `hash` VARCHAR(255) NOT NULL,
-    `type` VARCHAR(255) NOT NULL,
-    `scope` VARCHAR(255) NOT NULL,
-    `issued_at` TIMESTAMP NOT NULL,
-    `exp` TIMESTAMP NOT NULL,
-    `client_id` VARCHAR(255) NOT NULL COMMENT 'アプリケーションID',
-    `user_id` VARCHAR(255) NOT NULL,
-    `revoked` BOOLEAN NOT NULL DEFAULT FALSE
-  );
+CREATE TABLE applications (
+  id CHAR(26) PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  description TEXT NULL,
+  website_url VARCHAR(255) NULL,
+  privacy_policy_url VARCHAR(255) NULL,
+  client_secret VARCHAR(255) NOT NULL,
+  user_id CHAR(26) NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  deleted_at DATETIME NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) COMMENT='Table to store third-party application information. Type: master';
 
-CREATE TABLE
-  `refresh_tokens` (
-    `id` VARCHAR(255) PRIMARY KEY,
-    `hash` VARCHAR(255) NOT NULL,
-    `type` VARCHAR(255) NOT NULL,
-    `issued_at` TIMESTAMP NOT NULL,
-    `exp` TIMESTAMP NOT NULL,
-    `client_id` VARCHAR(255) NOT NULL COMMENT 'アプリケーションID',
-    `user_id` VARCHAR(255) NOT NULL,
-    `revoked` BOOLEAN NOT NULL DEFAULT FALSE
-  );
+CREATE INDEX idx_applications_name ON applications(name);
+CREATE INDEX idx_applications_created_at ON applications(created_at);
+CREATE INDEX idx_applications_updated_at ON applications(updated_at);
+CREATE INDEX idx_applications_deleted_at ON applications(deleted_at);
 
-CREATE TABLE
-  `id_tokens` (
-    `id` VARCHAR(255) PRIMARY KEY,
-    `hash` VARCHAR(255) NOT NULL,
-    `type` VARCHAR(255) NOT NULL,
-    `issued_at` TIMESTAMP NOT NULL,
-    `exp` TIMESTAMP NOT NULL,
-    `client_id` VARCHAR(255) NOT NULL COMMENT 'アプリケーションID',
-    `nonce` VARCHAR(255) NULL,
-    `auth_time` TIMESTAMP NULL,
-    `acr` VARCHAR(255) NULL,
-    `amr` VARCHAR(255) NULL,
-    -- JSONでもよい
-    `user_id` VARCHAR(255) NOT NULL,
-    `revoked` BOOLEAN NOT NULL DEFAULT FALSE
-  );
+-- redirect_uris
 
-CREATE TABLE
-  `consents` (`id` INT PRIMARY KEY AUTO_INCREMENT, `scope` VARCHAR(255), `is_enable` BOOLEAN);
+CREATE TABLE redirect_uris (
+  application_id CHAR(26) NOT NULL,
+  uri VARCHAR(255) NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  deleted_at DATETIME NULL,
+  FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE CASCADE,
+  PRIMARY KEY (application_id, uri)
+) COMMENT='Table to store redirect URIs for third-party applications. Type: master';
 
-CREATE TABLE
-  `sessions` (
-    `id` VARCHAR(255) PRIMARY KEY,
-    `user_id` VARCHAR(255) NOT NULL,
-    `ip_address` VARCHAR(255) NOT NULL,
-    `user_agent` VARCHAR(255) NOT NULL,
-    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    `expires_at` TIMESTAMP,
-    `is_enable` BOOLEAN NOT NULL DEFAULT TRUE
-  );
+CREATE INDEX idx_redirect_uris_created_at ON redirect_uris(created_at);
+CREATE INDEX idx_redirect_uris_updated_at ON redirect_uris(updated_at);
+CREATE INDEX idx_redirect_uris_deleted_at ON redirect_uris(deleted_at);
 
-CREATE TABLE
-  `roles` (
-    `id` VARCHAR(255) PRIMARY KEY,
-    `custom_id` VARCHAR(255) UNIQUE NOT NULL,
-    `name` VARCHAR(255) NULL,
-    `permission` INT NOT NULL DEFAULT 0,
-    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP NOT NULL,
-    `is_enable` BOOLEAN DEFAULT TRUE,
-    `is_system` BOOLEAN DEFAULT FALSE
-  );
+-- roles
 
-CREATE TABLE
-  `discords` (
-    `id` INT PRIMARY KEY AUTO_INCREMENT,
-    `custom_id` VARCHAR(255) UNIQUE NOT NULL,
-    `discord_id` VARCHAR(255) UNIQUE NOT NULL,
-    `user_id` VARCHAR(255) NOT NULL
-  );
+CREATE TABLE roles (
+  id CHAR(26) PRIMARY KEY,
+  custom_id VARCHAR(50) NOT NULL UNIQUE,
+  name VARCHAR(50) NOT NULL UNIQUE,
+  description TEXT NULL,
+  permission_bitmask BIGINT NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  deleted_at DATETIME NULL
+) COMMENT='Table to store user roles. Type: master';
 
-CREATE TABLE
-  `user_role` (`id` INT PRIMARY KEY AUTO_INCREMENT, `user_id` VARCHAR(255) NOT NULL, `role_id` VARCHAR(255) NOT NULL);
+CREATE INDEX idx_roles_created_at ON roles(created_at);
+CREATE INDEX idx_roles_updated_at ON roles(updated_at);
+CREATE INDEX idx_roles_deleted_at ON roles(deleted_at);
 
-CREATE TABLE
-  `user_app` (`id` INT PRIMARY KEY AUTO_INCREMENT, `app_id` VARCHAR(255), `user_id` VARCHAR(255));
+-- user_roles
+CREATE TABLE user_roles (
+  user_id CHAR(26) NOT NULL,
+  role_id CHAR(26) NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE,
+  PRIMARY KEY (user_id, role_id)
+) COMMENT='Table to associate users with roles. Type: transactional';
 
-CREATE TABLE
-  `email_verifications` (
-    `id` INT AUTO_INCREMENT PRIMARY KEY,
-    `user_id` VARCHAR(255) NOT NULL,
-    `verification_code` VARCHAR(255) NOT NULL,
-    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
-    `expires_at` DATETIME NOT NULL
-  );
+CREATE INDEX idx_user_roles_created_at ON user_roles(created_at);
+CREATE INDEX idx_user_roles_updated_at ON user_roles(updated_at);
 
-ALTER TABLE `roles` COMMENT = 'ロール情報';
+-- email_verification_codes
 
-ALTER TABLE `token_sets` ADD FOREIGN KEY (`access_token_id`) REFERENCES `access_tokens` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+CREATE TABLE email_verification_codes (
+  id CHAR(26) PRIMARY KEY,
+  user_id CHAR(26) NOT NULL,
+  code VARCHAR(255) NOT NULL UNIQUE,
+  expires_at DATETIME NOT NULL,
+  request_type ENUM('registration', 'password_reset', 'email_change') NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) COMMENT='Table to store email verification codes. Type: transactional';
 
-ALTER TABLE `token_sets` ADD FOREIGN KEY (`refresh_token_id`) REFERENCES `refresh_tokens` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+CREATE INDEX idx_email_verification_codes_expires_at ON email_verification_codes(expires_at);
+CREATE INDEX idx_email_verification_codes_created_at ON email_verification_codes(created_at);
 
-ALTER TABLE `token_sets` ADD FOREIGN KEY (`id_token_id`) REFERENCES `id_tokens` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+-- sessions
+CREATE TABLE sessions (
+  id CHAR(26) PRIMARY KEY,
+  user_id CHAR(26) NOT NULL,
+  ip_address VARCHAR(45) NULL,
+  user_agent VARCHAR(255) NULL,
+  expires_at DATETIME NOT NULL,
+  last_login_at DATETIME NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  deleted_at DATETIME NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) COMMENT='Table to store user sessions. Type: master';
 
-ALTER TABLE `auths` ADD FOREIGN KEY (`auth_user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+CREATE INDEX ids_sessions_ip_address ON sessions(ip_address);
+CREATE INDEX idx_sessions_user_agent ON sessions(user_agent);
+CREATE INDEX idx_sessions_expires_at ON sessions(expires_at);
+CREATE INDEX idx_sessions_last_login_at ON sessions(last_login_at);
+CREATE INDEX idx_sessions_created_at ON sessions(created_at);
+CREATE INDEX idx_sessions_updated_at ON sessions(updated_at);
+CREATE INDEX idx_sessions_deleted_at ON sessions(deleted_at);
 
-ALTER TABLE `sessions` ADD FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+-- external_identities
 
-ALTER TABLE `redirect_uris` ADD FOREIGN KEY (`app_id`) REFERENCES `apps` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+CREATE TABLE external_identities (
+  id CHAR(26) PRIMARY KEY,
+  user_id CHAR(26) NOT NULL,
+  provider ENUM('discord', 'github') NOT NULL,
+  external_user_id VARCHAR(100) NOT NULL,
+  id_token VARCHAR(255) NOT NULL,
+  access_token VARCHAR(255) NOT NULL,
+  refresh_token VARCHAR(255) NULL,
+  token_expires_at DATETIME NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  deleted_at DATETIME NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) COMMENT='Table to store external identity links for users. Type: master';
 
-ALTER TABLE `auths` ADD FOREIGN KEY (`app_id`) REFERENCES `apps` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+CREATE INDEX idx_external_identities_provider ON external_identities(provider);
+CREATE INDEX idx_external_identities_external_user_id ON external_identities(external_user_id);
+CREATE INDEX idx_external_identities_token_expires_at ON external_identities(token_expires_at);
+CREATE INDEX idx_external_identities_created_at ON external_identities(created_at);
+CREATE INDEX idx_external_identities_updated_at ON external_identities(updated_at);
+CREATE INDEX idx_external_identities_deleted_at ON external_identities(deleted_at);
 
-ALTER TABLE `oidc_authorizations` ADD FOREIGN KEY (`auth_id`) REFERENCES `auths` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+-- consents
 
-ALTER TABLE `oidc_authorizations` ADD FOREIGN KEY (`consent_id`) REFERENCES `consents` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+CREATE TABLE consents (
+  id CHAR(26) PRIMARY KEY,
+  user_id CHAR(26) NOT NULL,
+  application_id CHAR(26) NOT NULL,
+  scope VARCHAR(255) NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  deleted_at DATETIME NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE CASCADE
+) COMMENT='Table to store user consents for third-party applications. Type: master';
 
-ALTER TABLE `oidc_authorizations` ADD FOREIGN KEY (`code_id`) REFERENCES `code` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+CREATE INDEX idx_consents_created_at ON consents(created_at);
+CREATE INDEX idx_consents_updated_at ON consents(updated_at);
+CREATE INDEX idx_consents_deleted_at ON consents(deleted_at);
 
-ALTER TABLE `token_sets` ADD FOREIGN KEY (`oidc_authorization_id`) REFERENCES `oidc_authorizations` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+-- oauth_tokens
 
-ALTER TABLE `discords` ADD FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+CREATE TABLE oauth_tokens (
+  id CHAR(26) PRIMARY KEY,
+  consent_id CHAR(26) NOT NULL,
+  id_token_jti VARCHAR(255) NOT NULL UNIQUE,
+  access_token_jti VARCHAR(255) NOT NULL UNIQUE,
+  refresh_token_jti VARCHAR(255) NOT NULL UNIQUE,
+  expires_at DATETIME NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  deleted_at DATETIME NULL,
+  FOREIGN KEY (consent_id) REFERENCES consents(id) ON DELETE CASCADE
+) COMMENT='Table to store OAuth tokens for third-party applications. Type: master';
 
-ALTER TABLE `user_role` ADD FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+CREATE INDEX idx_oauth_tokens_expires_at ON oauth_tokens(expires_at);
+CREATE INDEX idx_oauth_tokens_created_at ON oauth_tokens(created_at);
+CREATE INDEX idx_oauth_tokens_updated_at ON oauth_tokens(updated_at);
+CREATE INDEX idx_oauth_tokens_deleted_at ON oauth_tokens(deleted_at);
 
-ALTER TABLE `user_role` ADD FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+-- authorization_requests
 
-ALTER TABLE `user_app` ADD FOREIGN KEY (`app_id`) REFERENCES `apps` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+CREATE TABLE authorization_requests (
+  id CHAR(26) PRIMARY KEY,
+  user_id CHAR(26) NOT NULL,
+  application_id CHAR(26) NOT NULL,
+  scope VARCHAR(255) NOT NULL,
+  redirect_uri VARCHAR(255) NOT NULL,
+  state VARCHAR(255) NULL,
+  nonce VARCHAR(255) NULL,
+  code_challenge VARCHAR(255) NULL,
+  code_challenge_method ENUM('plain', 'S256') NULL,
+  expires_at DATETIME NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE CASCADE
+) COMMENT='Table to store OAuth2 authorization requests. Type: transactional';
 
-ALTER TABLE `user_app` ADD FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+CREATE INDEX idx_authorization_requests_expires_at ON authorization_requests(expires_at);
+CREATE INDEX idx_authorization_requests_created_at ON authorization_requests(created_at);
+
+-- audit_logs
+
+CREATE TABLE audit_logs (
+  id CHAR(26) PRIMARY KEY,
+  user_id CHAR(26) NULL,
+  application_id CHAR(26) NULL,
+  session_id CHAR(26) NULL COMMENT 'If author is application, this links to the jti',
+  action ENUM('CREATE', 'READ', 'UPDATE', 'DELETE', 'LOGIN', 'LOGOUT', 'AUTHORIZATION') NOT NULL,
+  target_resource VARCHAR(255) NOT NULL,
+  trusted BOOLEAN NOT NULL DEFAULT FALSE,
+  details TEXT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+  FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE SET NULL
+) COMMENT='Table to store audit logs for security and compliance. Type: transactional';
+
+CREATE INDEX idx_audit_logs_user_id ON audit_logs(user_id);
+CREATE INDEX idx_audit_logs_application_id ON audit_logs(application_id);
+CREATE INDEX idx_audit_logs_action ON audit_logs(action);
+CREATE INDEX idx_audit_logs_target_resource ON audit_logs(target_resource);
+CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at);
+
+-- end of file
+
+DELIMITER //
+CREATE TRIGGER before_insert_users
+BEFORE INSERT ON users
+FOR EACH ROW
+BEGIN
+  IF NEW.id IS NULL THEN
+    SET NEW.id = gen_ulid();
+  END IF;
+END; //
+CREATE TRIGGER before_insert_applications
+BEFORE INSERT ON applications
+FOR EACH ROW
+BEGIN
+  IF NEW.id IS NULL THEN
+    SET NEW.id = gen_ulid();
+  END IF;
+END; //
+CREATE TRIGGER before_insert_roles
+BEFORE INSERT ON roles
+FOR EACH ROW
+BEGIN
+  IF NEW.id IS NULL THEN
+    SET NEW.id = gen_ulid();
+  END IF;
+END; //
+CREATE TRIGGER before_insert_email_verification_codes
+BEFORE INSERT ON email_verification_codes
+FOR EACH ROW
+BEGIN
+  IF NEW.id IS NULL THEN
+    SET NEW.id = gen_ulid();
+  END IF;
+END; //
+CREATE TRIGGER before_insert_sessions
+BEFORE INSERT ON sessions
+FOR EACH ROW
+BEGIN
+  IF NEW.id IS NULL THEN
+    SET NEW.id = gen_ulid();
+  END IF;
+END; //
+CREATE TRIGGER before_insert_external_identities
+BEFORE INSERT ON external_identities
+FOR EACH ROW
+BEGIN
+  IF NEW.id IS NULL THEN
+    SET NEW.id = gen_ulid();
+  END IF;
+END; //
+CREATE TRIGGER before_insert_consents
+BEFORE INSERT ON consents
+FOR EACH ROW
+BEGIN
+  IF NEW.id IS NULL THEN
+    SET NEW.id = gen_ulid();
+  END IF;
+END; //
+CREATE TRIGGER before_insert_oauth_tokens
+BEFORE INSERT ON oauth_tokens
+FOR EACH ROW
+BEGIN
+  IF NEW.id IS NULL THEN
+    SET NEW.id = gen_ulid();
+  END IF;
+END; //
+CREATE TRIGGER before_insert_audit_logs
+BEFORE INSERT ON audit_logs
+FOR EACH ROW
+BEGIN
+  IF NEW.id IS NULL THEN
+    SET NEW.id = gen_ulid();
+  END IF;
+END; //
+CREATE TRIGGER before_insert_authorization_requests
+BEFORE INSERT ON authorization_requests
+FOR EACH ROW
+BEGIN
+  IF NEW.id IS NULL THEN
+    SET NEW.id = gen_ulid();
+  END IF;
+END; //
+DELIMITER ;

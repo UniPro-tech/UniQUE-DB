@@ -1,81 +1,41 @@
-ALTER TABLE `token_sets`
-DROP CONSTRAINT `access_token_id`;
+-- audit_logs table rollback
+DROP TABLE IF EXISTS audit_logs;
 
-ALTER TABLE `token_sets`
-DROP CONSTRAINT `refresh_token_id`;
+-- authorizations table rollback
+DROP TABLE IF EXISTS authorization_requests;
 
-ALTER TABLE `token_sets`
-DROP CONSTRAINT `id_token_id`;
+-- oauth tokens table rollback
+DROP TABLE IF EXISTS oauth_tokens;
 
-ALTER TABLE `auths`
-DROP CONSTRAINT `auth_user_id`;
+-- consents table rollback
+DROP TABLE IF EXISTS consents;
 
-ALTER TABLE `sessions`
-DROP CONSTRAINT `user_id`;
+-- external_identities table rollback
+DROP TABLE IF EXISTS external_identities;
 
-ALTER TABLE `redirect_uris`
-DROP CONSTRAINT `app_id`;
+-- sessions table rollback
+DROP TABLE IF EXISTS sessions;
 
-ALTER TABLE `auths`
-DROP CONSTRAINT `app_id`;
+-- email_verification_codes table rollback
+DROP TABLE IF EXISTS email_verification_codes;
 
-ALTER TABLE `oidc_authorizations`
-DROP CONSTRAINT `auth_id`;
+-- user_roles
+DROP TABLE IF EXISTS user_roles;
 
-ALTER TABLE `oidc_authorizations`
-DROP CONSTRAINT `consent_id`;
+-- roles
+DROP TABLE IF EXISTS roles;
 
-ALTER TABLE `oidc_authorizations`
-DROP CONSTRAINT `code_id`;
+-- redirect_uris table rollback
+DROP TABLE IF EXISTS redirect_uris;
 
-ALTER TABLE `token_sets`
-DROP CONSTRAINT `oidc_authorization_id`;
+-- applications table rollback
+DROP TABLE IF EXISTS applications;
 
-ALTER TABLE `discords`
-DROP CONSTRAINT `user_id`;
+-- profiles
+DROP TABLE IF EXISTS profiles;
 
-ALTER TABLE `user_role`
-DROP CONSTRAINT `user_id`;
+-- users table rollback
+DROP TABLE IF EXISTS users;
 
-ALTER TABLE `user_role`
-DROP CONSTRAINT `role_id`;
-
-ALTER TABLE `user_app`
-DROP CONSTRAINT `app_id`;
-
-ALTER TABLE `user_app`
-DROP CONSTRAINT `user_id`;
-
-DROP TABLE `users`;
-
-DROP TABLE `apps`;
-
-DROP TABLE `redirect_uris`;
-
-DROP TABLE `auths`;
-
-DROP TABLE `oidc_authorizations`;
-
-DROP TABLE `token_sets`;
-
-DROP TABLE `code`;
-
-DROP TABLE `access_tokens`;
-
-DROP TABLE `refresh_tokens`;
-
-DROP TABLE `id_tokens`;
-
-DROP TABLE `consents`;
-
-DROP TABLE `sessions`;
-
-DROP TABLE `roles`;
-
-DROP TABLE `discords`;
-
-DROP TABLE `user_role`;
-
-DROP TABLE `user_app`;
-
-DROP TABLE `email_verifications`;
+-- delete function
+DROP FUNCTION IF EXISTS gen_ulid();
