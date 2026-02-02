@@ -240,7 +240,10 @@ CREATE TABLE authorization_requests (
   nonce VARCHAR(255) NULL,
   code_challenge VARCHAR(255) NULL,
   code_challenge_method ENUM('plain', 'S256') NULL,
+  -- Only 'code' is supported for now
+  response_type ENUM('code') NOT NULL DEFAULT 'code',
   is_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+  code VARCHAR(255) NULL UNIQUE,
   expires_at DATETIME NOT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
