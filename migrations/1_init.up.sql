@@ -232,7 +232,7 @@ CREATE INDEX idx_oauth_tokens_deleted_at ON oauth_tokens(deleted_at);
 
 CREATE TABLE authorization_requests (
   id CHAR(26) PRIMARY KEY,
-  session_id CHAR(26) NOT NULL,
+  session_id CHAR(26) NULL,
   application_id CHAR(26) NOT NULL,
   scope VARCHAR(255) NOT NULL,
   redirect_uri VARCHAR(255) NOT NULL,
