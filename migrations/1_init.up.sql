@@ -242,7 +242,7 @@ CREATE TABLE authorization_requests (
   code_challenge_method ENUM('plain', 'S256') NULL,
   -- Only 'code' is supported for now
   response_type ENUM('code') NOT NULL DEFAULT 'code',
-  is_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+  is_enabled BOOLEAN NOT NULL DEFAULT FALSE COMMENT 'Consentが作られており、ユーザーが許可したかどうか',
   code VARCHAR(255) NULL UNIQUE,
   expires_at DATETIME NOT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
