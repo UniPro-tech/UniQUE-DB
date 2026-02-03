@@ -232,7 +232,7 @@ CREATE INDEX idx_oauth_tokens_deleted_at ON oauth_tokens(deleted_at);
 
 CREATE TABLE authorization_requests (
   id CHAR(26) PRIMARY KEY,
-  user_id CHAR(26) NOT NULL,
+  session_id CHAR(26) NOT NULL,
   application_id CHAR(26) NOT NULL,
   scope VARCHAR(255) NOT NULL,
   redirect_uri VARCHAR(255) NOT NULL,
@@ -246,7 +246,7 @@ CREATE TABLE authorization_requests (
   code VARCHAR(255) NULL UNIQUE,
   expires_at DATETIME NOT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE,
   FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE CASCADE
 ) COMMENT='Table to store OAuth2 authorization requests. Type: transactional';
 
