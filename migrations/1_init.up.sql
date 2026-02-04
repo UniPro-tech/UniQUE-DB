@@ -25,6 +25,7 @@ CREATE TABLE users (
   custom_id VARCHAR(50) NOT NULL UNIQUE,
   email VARCHAR(100) NOT NULL UNIQUE,
   external_email VARCHAR(100) NOT NULL,
+  email_verified BOOLEAN NOT NULL DEFAULT FALSE,
   affiliation_period VARCHAR(20) NULL,
   password_hash VARCHAR(255) NOT NULL,
   status ENUM('established', 'active', 'suspended', 'archived') NOT NULL DEFAULT 'established',
@@ -213,9 +214,9 @@ CREATE INDEX idx_consents_deleted_at ON consents(deleted_at);
 CREATE TABLE oauth_tokens (
   id CHAR(26) PRIMARY KEY,
   consent_id CHAR(26) NOT NULL,
-  id_token_jti VARCHAR(255) NOT NULL UNIQUE,
-  access_token_jti VARCHAR(255) NOT NULL UNIQUE,
-  refresh_token_jti VARCHAR(255) NOT NULL UNIQUE,
+  id_token_jti VARCHAR(255) NULL UNIQUE,
+  access_token_jti VARCHAR(255) NULL UNIQUE,
+  refresh_token_jti VARCHAR(255) NULL UNIQUE,
   expires_at DATETIME NOT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -238,6 +239,7 @@ CREATE TABLE authorization_requests (
   redirect_uri VARCHAR(255) NOT NULL,
   state VARCHAR(255) NULL,
   nonce VARCHAR(255) NULL,
+  prompt ENUM('none', 'login', 'consent', 'select_account') NULL,
   code_challenge VARCHAR(255) NULL,
   code_challenge_method ENUM('plain', 'S256') NULL,
   -- Only 'code' is supported for now
