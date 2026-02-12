@@ -4,10 +4,9 @@ set -eu
 MIGRATE_BIN=/usr/local/bin/migrate
 MIGRATIONS_DIR=${MIGRATIONS_DIR:-/migrations}
 
+# If no action provided, default to 'up'. Use 'set --' to preserve multiple args.
 if [ "$#" -eq 0 ]; then
-  ACTION="up"
-else
-  ACTION="$@"
+  set -- up
 fi
 
 if [ -z "${DATABASE_URL:-}" ]; then
@@ -19,7 +18,7 @@ MAX_RETRIES=${MAX_RETRIES:-60}
 SLEEP=${SLEEP:-2}
 i=0
 
-until $MIGRATE_BIN -path "$MIGRATIONS_DIR" -database "$DATABASE_URL" $ACTION; do
+until "$MIGRATE_BIN" -path "$MIGRATIONS_DIR" -database "$DATABASE_URL" "$@"; do
   i=$((i+1))
   echo "migrate failed or DB not ready, retrying in ${SLEEP}s... ($i/$MAX_RETRIES)"
   if [ "$i" -ge "$MAX_RETRIES" ]; then
