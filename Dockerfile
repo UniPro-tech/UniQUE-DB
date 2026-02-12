@@ -5,11 +5,14 @@ ENV version=v4.15.2
 ENV os=linux
 ENV arch=amd64
 
-RUN apt-get update && apt-get install -y curl ca-certificates
+RUN apt-get update \
+	&& apt-get install -y --no-install-recommends curl ca-certificates \
+	&& rm -rf /var/lib/apt/lists/*
 
-RUN curl -L https://github.com/golang-migrate/migrate/releases/download/$version/migrate.$os-$arch.tar.gz | tar xvz
-
-RUN mv migrate /usr/local/bin/migrate
+# Download and extract migrate binary in a temp dir, then move into /usr/local/bin
+RUN curl -fSL https://github.com/golang-migrate/migrate/releases/download/$version/migrate.$os-$arch.tar.gz \
+	| tar -xz -C /tmp \
+	&& mv /tmp/migrate /usr/local/bin/migrate
 
 FROM mysql:8.0
 

@@ -1,23 +1,3 @@
-SET GLOBAL log_bin_trust_function_creators = 1;
-
--- ULID generation function
-
-DELIMITER //
-CREATE FUNCTION gen_ulid ()
-RETURNS CHAR(26) NOT DETERMINISTIC
-BEGIN
-  DECLARE msec_ts BIGINT DEFAULT FLOOR(UNIX_TIMESTAMP(CURRENT_TIMESTAMP(4)) * 1000);
-  DECLARE rand CHAR(20) DEFAULT HEX(RANDOM_BYTES(10));
-  DECLARE rand_first BIGINT DEFAULT CONV(SUBSTRING(rand, 1, 10), 16, 10);
-  DECLARE rand_last BIGINT DEFAULT CONV(SUBSTRING(rand, 11, 10), 16, 10);
-  RETURN CONCAT(
-    to_crockford_b32(msec_ts, 10),
-    to_crockford_b32(rand_first, 8),
-    to_crockford_b32(rand_last, 8)
-  );
-END; //
-DELIMITER ;
-
 -- users
 
 CREATE TABLE users (
@@ -138,6 +118,7 @@ CREATE TABLE email_verification_codes (
   code VARCHAR(255) NOT NULL UNIQUE,
   expires_at DATETIME NOT NULL,
   request_type ENUM('registration', 'password_reset', 'email_change') NOT NULL,
+  new_email VARCHAR(100) NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) COMMENT='Table to store email verification codes. Type: transactional';
@@ -276,88 +257,3 @@ CREATE INDEX idx_audit_logs_application_id ON audit_logs(application_id);
 CREATE INDEX idx_audit_logs_action ON audit_logs(action);
 CREATE INDEX idx_audit_logs_target_resource ON audit_logs(target_resource);
 CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at);
-
--- end of file
-
-DELIMITER //
-CREATE TRIGGER before_insert_users
-BEFORE INSERT ON users
-FOR EACH ROW
-BEGIN
-  IF NEW.id IS NULL THEN
-    SET NEW.id = gen_ulid();
-  END IF;
-END; //
-CREATE TRIGGER before_insert_applications
-BEFORE INSERT ON applications
-FOR EACH ROW
-BEGIN
-  IF NEW.id IS NULL THEN
-    SET NEW.id = gen_ulid();
-  END IF;
-END; //
-CREATE TRIGGER before_insert_roles
-BEFORE INSERT ON roles
-FOR EACH ROW
-BEGIN
-  IF NEW.id IS NULL THEN
-    SET NEW.id = gen_ulid();
-  END IF;
-END; //
-CREATE TRIGGER before_insert_email_verification_codes
-BEFORE INSERT ON email_verification_codes
-FOR EACH ROW
-BEGIN
-  IF NEW.id IS NULL THEN
-    SET NEW.id = gen_ulid();
-  END IF;
-END; //
-CREATE TRIGGER before_insert_sessions
-BEFORE INSERT ON sessions
-FOR EACH ROW
-BEGIN
-  IF NEW.id IS NULL THEN
-    SET NEW.id = gen_ulid();
-  END IF;
-END; //
-CREATE TRIGGER before_insert_external_identities
-BEFORE INSERT ON external_identities
-FOR EACH ROW
-BEGIN
-  IF NEW.id IS NULL THEN
-    SET NEW.id = gen_ulid();
-  END IF;
-END; //
-CREATE TRIGGER before_insert_consents
-BEFORE INSERT ON consents
-FOR EACH ROW
-BEGIN
-  IF NEW.id IS NULL THEN
-    SET NEW.id = gen_ulid();
-  END IF;
-END; //
-CREATE TRIGGER before_insert_oauth_tokens
-BEFORE INSERT ON oauth_tokens
-FOR EACH ROW
-BEGIN
-  IF NEW.id IS NULL THEN
-    SET NEW.id = gen_ulid();
-  END IF;
-END; //
-CREATE TRIGGER before_insert_audit_logs
-BEFORE INSERT ON audit_logs
-FOR EACH ROW
-BEGIN
-  IF NEW.id IS NULL THEN
-    SET NEW.id = gen_ulid();
-  END IF;
-END; //
-CREATE TRIGGER before_insert_authorization_requests
-BEFORE INSERT ON authorization_requests
-FOR EACH ROW
-BEGIN
-  IF NEW.id IS NULL THEN
-    SET NEW.id = gen_ulid();
-  END IF;
-END; //
-DELIMITER ;
