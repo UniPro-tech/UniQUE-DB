@@ -1,0 +1,2 @@
+ALTER TABLE `redirect_uris`
+DROP PRIMARY KEY;
