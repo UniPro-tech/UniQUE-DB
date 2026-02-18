@@ -9,7 +9,7 @@ CREATE TABLE
     `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     `deleted_at` datetime DEFAULT NULL,
     FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE NO ACTION ON UPDATE CASCADE
-  ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+  );
 
 CREATE INDEX `idx_announcements_created_by` ON `announcements` (`created_by`);
 
