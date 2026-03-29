@@ -1,32 +1,15 @@
-#!/bin/sh
-set -eu
+#!/bin/bash
+set -e
 
-MIGRATE_BIN=/usr/local/bin/migrate
-MIGRATIONS_DIR=${MIGRATIONS_DIR:-/migrations}
+# 1. git clone
+git clone https://github.com/UniPro-tech/UniQUE-DB.git
+cd UniQUE-DB
 
-# If no action provided, default to 'up'. Use 'set --' to preserve multiple args.
-if [ "$#" -eq 0 ]; then
-  set -- up
-fi
+# 2. 最新タグ取得
+latest_tag=$(git describe --tags --abbrev=0)
+git checkout "$latest_tag"
 
-if [ -z "${DATABASE_URL:-}" ]; then
-  echo "DATABASE_URL is required, e.g. mysql://user:pass@tcp(host:3306)/dbname?multiStatements=true"
-  exit 1
-fi
-
-MAX_RETRIES=${MAX_RETRIES:-60}
-SLEEP=${SLEEP:-2}
-i=0
-
-until "$MIGRATE_BIN" -path "$MIGRATIONS_DIR" -database "$DATABASE_URL" "$@"; do
-  i=$((i+1))
-  echo "migrate failed or DB not ready, retrying in ${SLEEP}s... ($i/$MAX_RETRIES)"
-  if [ "$i" -ge "$MAX_RETRIES" ]; then
-    echo "max retries reached, aborting"
-    exit 1
-  fi
-  sleep "$SLEEP"
-done
-
-echo "migrations applied"
-exit 0
+# 3. migration up
+export DATABASE_URL="mysql://user:pass@tcp(host:3306)/dbname?multiStatements=true"
+export MIGRATIONS_DIR="./migrations"
+migrate -path "$MIGRATIONS_DIR" -database "$DATABASE_URL" up
