@@ -16,5 +16,8 @@ RUN curl -fSL https://github.com/golang-migrate/migrate/releases/download/$versi
 
 FROM mysql:9
 
+COPY entrypoint.sh /usr/local/bin/migrate-entrypoint.sh
+RUN chmod +x /usr/local/bin/migrate-entrypoint.sh
+
 ENTRYPOINT ["/usr/local/bin/migrate-entrypoint.sh"]
 CMD ["up"]
