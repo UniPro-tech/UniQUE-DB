@@ -1,5 +1,5 @@
 # Multi-stage: build migrate binary in Debian, then copy into MySQL base image
-FROM debian:bullseye-slim AS builder
+FROM mysql:9
 
 ENV version=v4.15.2
 ENV os=linux
@@ -13,8 +13,6 @@ RUN apt-get update \
 RUN curl -fSL https://github.com/golang-migrate/migrate/releases/download/$version/migrate.$os-$arch.tar.gz \
 	| tar -xz -C /tmp \
 	&& mv /tmp/migrate /usr/local/bin/migrate
-
-FROM mysql:9
 
 COPY entrypoint.sh /usr/local/bin/migrate-entrypoint.sh
 RUN chmod +x /usr/local/bin/migrate-entrypoint.sh
