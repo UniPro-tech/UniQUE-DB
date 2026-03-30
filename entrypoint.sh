@@ -9,6 +9,8 @@ cd UniQUE-DB
 latest_tag=$(git describe --tags --abbrev=0)
 git checkout "$latest_tag"
 
+echo "Checked out to latest tag: $latest_tag"
+
 # 3. migration up
 export MIGRATIONS_DIR="./migrations"
 migrate -path "$MIGRATIONS_DIR" -database "$DATABASE_URL" up
