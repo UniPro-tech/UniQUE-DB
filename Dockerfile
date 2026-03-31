@@ -5,7 +5,7 @@ ENV os=linux
 ENV arch=amd64
 
 RUN apt-get update \
-	&& apt-get install -y --no-install-recommends curl ca-certificates mysql-client \
+	&& apt-get install -y --no-install-recommends curl ca-certificates default-mysql-client \
 	&& rm -rf /var/lib/apt/lists/*
 
 # Download and extract migrate binary in a temp dir, then move into /usr/local/bin
