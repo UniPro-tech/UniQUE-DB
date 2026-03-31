@@ -1,5 +1,4 @@
-# Multi-stage: build migrate binary in Debian, then copy into MySQL base image
-FROM mysql:9
+FROM debian:bookworm-slim
 
 ENV version=v4.15.2
 ENV os=linux
