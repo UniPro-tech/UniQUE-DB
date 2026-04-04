@@ -23,7 +23,7 @@ ENV MIGRATIONS_DIR=/migrations
 RUN mkdir -p ${MIGRATIONS_DIR}
 
 COPY migrations ${MIGRATIONS_DIR}
-COPY entrypoint.sh /usr/local/bin/migrate-entrypoint.sh
+COPY entrypoint.dev.sh /usr/local/bin/migrate-entrypoint.sh
 RUN chmod +x /usr/local/bin/migrate-entrypoint.sh
 
 ENTRYPOINT ["/usr/local/bin/migrate-entrypoint.sh"]
