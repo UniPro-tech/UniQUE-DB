@@ -1,3 +1,7 @@
+> [!WARNING]
+> # DEPRECATED
+> このリポジトリは、[UniPro-tech/UniQUE](https://github.com/UniPro-tech/UniQUE)に移動しました。
+
 # Migration image (golang-migrate + MySQL base)
 
 Build the image:
